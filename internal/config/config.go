@@ -54,8 +54,6 @@ func MustLoadConfig() *Config {
 		log.Fatalf("failed to read config file: %v", err)
 	}
 
-	//todo CONFIGURE DATABASE
-
 	return &config
 }
 
