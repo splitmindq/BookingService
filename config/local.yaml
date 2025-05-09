@@ -11,3 +11,8 @@ db_config:
   user: ${DB_USER}
   password: ${DB_PASSWORD}
   name: ${DB_NAME}
+  max_connections: 10
+  min_connections: 2
+  max_connection_life: 60m
+  max_connection_idle_time: 30m
+

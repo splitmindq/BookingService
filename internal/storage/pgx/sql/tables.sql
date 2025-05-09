@@ -1,13 +1,15 @@
-CREATE SCHEMA IF NOT EXISTS booking_service DEFAULT CHARACTER SET utf8 ;
+CREATE SCHEMA IF NOT EXISTS booking_service;
+
+SET search_path TO booking_service;
 
 CREATE TYPE role_type AS ENUM ('admin');
-CREATE TYPE booking_status AS ENUM ('pending', 'confirmed', 'canceled')
-CREATE TYPE payment_method AS ENUM ('card', 'bank')
+CREATE TYPE booking_status AS ENUM ('pending', 'confirmed', 'canceled');
+CREATE TYPE payment_method AS ENUM ('card', 'bank');
 CREATE TYPE payment_status AS ENUM ('pending', 'success', 'failed');
 CREATE TYPE blocked_reason AS ENUM ('booking', 'maintenance', 'personal', 'other');
 
 -- Users Table
-CREATE TABLE IF NOT EXIST booking_service.users (
+CREATE TABLE IF NOT EXISTS booking_service.users (
     user_id SERIAL PRIMARY KEY,
     phone VARCHAR(20) NOT NULL UNIQUE,
     email VARCHAR(100) NOT NULL UNIQUE,
@@ -15,20 +17,20 @@ CREATE TABLE IF NOT EXIST booking_service.users (
     first_name VARCHAR(50) NOT NULL,
     last_name VARCHAR(50) NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
+    );
 
 -- Roles Table
-CREATE TABLE IF NOT EXIST booking_service.user_roles(
+CREATE TABLE IF NOT EXISTS booking_service.user_roles(
     user_id INTEGER NOT NULL,
     role role_type NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, role),
     FOREIGN KEY (user_id) REFERENCES booking_service.users (user_id)
-)
+);
 
 -- Properties Table
-CREATE TABLE IF NOT EXIST booking_service.properties (
-    property_id SERIAL PRIMARY KEY
+CREATE TABLE IF NOT EXISTS booking_service.properties (
+    property_id SERIAL PRIMARY KEY,
     owner_id INTEGER NOT NULL,
     title VARCHAR(100) NOT NULL,
     description TEXT,
@@ -39,10 +41,10 @@ CREATE TABLE IF NOT EXIST booking_service.properties (
     max_guests INTEGER NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (owner_id) REFERENCES booking_service.users (user_id)
-    )
+    );
 
 -- Bookings Table
-CREATE TABLE IF NOT EXIST booking_service.bookings (
+CREATE TABLE IF NOT EXISTS booking_service.bookings (
     booking_id SERIAL PRIMARY KEY,
     property_id INTEGER NOT NULL,
     guest_id INTEGER NOT NULL,
@@ -53,12 +55,12 @@ CREATE TABLE IF NOT EXIST booking_service.bookings (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (property_id) REFERENCES booking_service.properties (property_id),
     FOREIGN KEY (guest_id) REFERENCES booking_service.users (user_id)
-    )
+    );
 
 CREATE INDEX idx_bookings_dates ON booking_service.bookings (property_id, check_in_date, check_out_date);
 
 -- Payments Table
-CREATE TABLE IF NOT EXIST booking_service.payments (
+CREATE TABLE IF NOT EXISTS booking_service.payments (
     payment_id SERIAL PRIMARY KEY,
     booking_id INTEGER NOT NULL,
     amount NUMERIC(10,2) NOT NULL,
@@ -68,7 +70,7 @@ CREATE TABLE IF NOT EXIST booking_service.payments (
     transaction_id VARCHAR(100),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (booking_id) REFERENCES booking_service.bookings (booking_id)
-    )
+    );
 
 -- Table Reviews
 CREATE TABLE IF NOT EXISTS booking_service.reviews (

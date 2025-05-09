@@ -3,6 +3,8 @@ package main
 import (
 	"BookingService/internal/config"
 	"BookingService/internal/controller"
+	"BookingService/internal/storage/pgx"
+	"fmt"
 	"github.com/labstack/echo/v4"
 	"log/slog"
 	"os"
@@ -21,14 +23,20 @@ func main() {
 	//todo create routes
 
 	cfg := config.MustLoadConfig()
-
+	fmt.Println(cfg)
 	logger := setupLogger(cfg.Env)
+
+	storage, err := pgx.NewStorage(cfg)
+	if err != nil {
+		logger.Error(err.Error())
+	}
+	defer storage.Close()
 
 	e := echo.New()
 
 	e.POST("/users", controller.NewUser(logger))
-	
-	err := cfg.HTTPListen(e)
+
+	err = cfg.HTTPListen(e)
 	if err != nil {
 		e.Logger.Fatal(err)
 	}

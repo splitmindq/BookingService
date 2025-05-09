@@ -24,7 +24,7 @@ services:
         condition: service_healthy
     environment:
       CONFIG_PATH: ${CONFIG_PATH:-config/local.yaml}
-      DB_HOST: postgres
+      DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}

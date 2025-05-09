@@ -17,11 +17,15 @@ type Config struct {
 }
 
 type DBConfig struct {
-	Host     string `yaml:"host" env-required:"true"`
-	Port     int    `yaml:"port" env-required:"true"`
-	Username string `yaml:"user" env:"DB_USER" env-required:"true"`
-	Password string `yaml:"password" env:"DB_PASSWORD" env-required:"true"`
-	Name     string `yaml:"name" env-required:"true"`
+	Host                  string        `yaml:"host" env:"DB_HOST" env-required:"true"`
+	Port                  int           `yaml:"port" env:"DB_PORT" env-required:"true"`
+	Username              string        `yaml:"user" env:"DB_USER" env-required:"true"`
+	Password              string        `yaml:"password" env:"DB_PASSWORD" env-required:"true"`
+	Name                  string        `yaml:"name" env:"DB_NAME" env-required:"true"`
+	MaxConnections        int32         `yaml:"max_connections" env-required:"true"`
+	MinConnections        int32         `yaml:"min_connections" env-required:"true"`
+	MaxConnectionLifetime time.Duration `yaml:"max_connection_life" env-required:"true"`
+	MaxConnectionIdleTime time.Duration `yaml:"max_connection_idle_time" env-required:"true"`
 }
 
 type HTTPServer struct {
@@ -34,24 +38,22 @@ type HTTPServer struct {
 
 func MustLoadConfig() *Config {
 
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
+	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
+		log.Fatalf("Error loading .env file: %v", err)
 	}
+
 	configPath := os.Getenv("CONFIG_PATH")
 	if configPath == "" {
-		log.Fatal("Variable CONFIG_PATH not set")
+		log.Fatal("Environment variable CONFIG_PATH not set")
 	}
 
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		log.Fatal("Config file does not exist")
+		log.Fatalf("Config file does not exist at path: %s", configPath)
 	}
 
 	var config Config
-	err = cleanenv.ReadConfig(configPath, &config)
-
-	if err != nil {
-		log.Fatalf("failed to read config file: %v", err)
+	if err := cleanenv.ReadConfig(configPath, &config); err != nil {
+		log.Fatalf("Failed to read config file: %v", err)
 	}
 
 	return &config
