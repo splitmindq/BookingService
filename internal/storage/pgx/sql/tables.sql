@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS booking_service.users (
     first_name VARCHAR(50) NOT NULL,
     last_name VARCHAR(50) NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
+);
 
 -- Roles Table
 CREATE TABLE IF NOT EXISTS booking_service.user_roles(
@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS booking_service.payments (
     FOREIGN KEY (booking_id) REFERENCES booking_service.bookings (booking_id)
     );
 
--- Table Reviews
+-- Table Reviews 
 CREATE TABLE IF NOT EXISTS booking_service.reviews (
     review_id SERIAL PRIMARY KEY,
     property_id INTEGER NOT NULL,
