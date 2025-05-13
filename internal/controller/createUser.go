@@ -25,7 +25,7 @@ func NewUser(log *slog.Logger) echo.HandlerFunc {
 		log.Info("user created successfully",
 			slog.String("name", user.Name),
 			slog.String("surname", user.Surname),
-			slog.String("phone", user.Phone))
+			slog.String("phone", user.Contact.Phone))
 
 		return c.JSON(http.StatusCreated, map[string]string{
 			"status": "user created",
