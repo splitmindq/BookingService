@@ -1,34 +1,31 @@
 package service
 
 import (
+	"BookingService/internal/config"
 	"BookingService/internal/entity"
+	"BookingService/internal/lib/jwt"
+	"BookingService/internal/repository"
 	"BookingService/internal/storage/pgx"
 	"context"
 	"errors"
+	"fmt"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthService struct {
-	userRepo *pgx.UserRepo
+	userRepo repository.UserRepository
+	cfg      *config.Config
 }
 
-func NewAuthService(userRepo *pgx.UserRepo) *AuthService {
-	return &AuthService{userRepo}
+func NewAuthService(userRepo *pgx.UserRepo, cfg *config.Config) *AuthService {
+	return &AuthService{userRepo, cfg}
 }
 
-func (s *AuthService) SignUp(ctx context.Context, input entity.SignUpInput) (*entity.User, error) {
-
-	existingUser, err := s.userRepo.FindByEmail(ctx, input.Contact.Email)
-	if err == nil {
-		return nil, err
-	}
-	if existingUser != nil {
-		return nil, errors.New("user with this email already exists")
-	}
+func (s *AuthService) SignUp(ctx context.Context, input entity.SignUpInput) (int64, error) {
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
 	user := &entity.User{
@@ -41,25 +38,32 @@ func (s *AuthService) SignUp(ctx context.Context, input entity.SignUpInput) (*en
 		Surname:      input.LastName,
 	}
 
-	if err = s.userRepo.Create(ctx, user); err != nil {
-		return nil, err
+	user, err = s.userRepo.Create(ctx, user)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create user: %w", err)
 	}
 
-	return user, nil
+	return user.Id, nil
 }
 
-func (s *AuthService) SignIn(ctx context.Context, input entity.SignInInput) (*entity.User, error) {
+func (s *AuthService) SignIn(ctx context.Context, input entity.SignInInput) (string, error) {
 	user, err := s.userRepo.FindByEmail(ctx, input.Email)
 	if err != nil {
-		return nil, err
+		return "", fmt.Errorf("failed to find user: %w", err)
 	}
 	if user == nil {
-		return nil, errors.New("invalid credentials")
+		return "", errors.New("invalid credentials")
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(input.Password)); err != nil {
-		return nil, errors.New("invalid credentials")
+		return "", errors.New("invalid credentials")
 	}
 
-	return user, nil
+	token, err := jwt.NewToken(user, s.cfg.JwtSecret, s.cfg.JwtExpire)
+
+	return token, nil
 }
+
+//func (s *AuthService) IsAdmin(ctx context.Context, userId int64) error {
+//
+//}

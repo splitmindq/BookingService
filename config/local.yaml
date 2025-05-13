@@ -5,6 +5,7 @@ http_server:
   write_timeout: 5s
   read_header_timeout: 1s
   idle_timeout: 60s
+  jwt_expire: 1h
 db_config:
   host: ${DB_HOST}
   port: 5432

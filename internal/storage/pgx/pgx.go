@@ -2,6 +2,7 @@ package pgx
 
 import (
 	"BookingService/internal/config"
+	"BookingService/internal/storage"
 	"context"
 	_ "embed"
 	"fmt"
@@ -9,6 +10,8 @@ import (
 	"log"
 	"time"
 )
+
+var _ storage.Storage = (*Storage)(nil)
 
 //go:embed sql/tables.sql
 var tableSchema string
@@ -18,11 +21,7 @@ type Storage struct {
 }
 
 func NewStorage(cfg *config.Config) (*Storage, error) {
-
-	if tableSchema == "" {
-		return nil, fmt.Errorf("table schema is empty")
-	}
-
+	
 	poolConfig, err := pgxpool.ParseConfig("")
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse config: %w", err)
@@ -56,6 +55,10 @@ func NewStorage(cfg *config.Config) (*Storage, error) {
 	}
 	return &Storage{db: db}, nil
 
+}
+
+func (s *Storage) GetPool() *pgxpool.Pool {
+	return s.db
 }
 
 func createTable(ctx context.Context, db *pgxpool.Pool) error {

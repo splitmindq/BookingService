@@ -11,9 +11,11 @@ import (
 )
 
 type Config struct {
-	Env        string     `yaml:"env" env-default:"local"`
-	HTTPServer HTTPServer `yaml:"http_server" env-required:"true"`
-	DBConfig   DBConfig   `yaml:"db_config" env-required:"true"`
+	Env        string        `yaml:"env" env-default:"local"`
+	HTTPServer HTTPServer    `yaml:"http_server" env-required:"true"`
+	DBConfig   DBConfig      `yaml:"db_config" env-required:"true"`
+	JwtSecret  []byte        `env-required:"true"`
+	JwtExpire  time.Duration `yaml:"jwt_expire" env-default:"1h"`
 }
 
 type DBConfig struct {
@@ -55,6 +57,8 @@ func MustLoadConfig() *Config {
 	if err := cleanenv.ReadConfig(configPath, &config); err != nil {
 		log.Fatalf("Failed to read config file: %v", err)
 	}
+
+	config.JwtSecret = []byte(os.Getenv("JWT_SECRET"))
 
 	return &config
 }

@@ -2,6 +2,7 @@ package pgx
 
 import (
 	"BookingService/internal/entity"
+	"BookingService/internal/repository"
 	"context"
 	"errors"
 	"fmt"
@@ -9,6 +10,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+var _ repository.UserRepository = (*UserRepo)(nil)
 
 type UserRepo struct {
 	db *pgxpool.Pool
@@ -18,10 +21,10 @@ func NewUserRepo(db *pgxpool.Pool) *UserRepo {
 	return &UserRepo{db: db}
 }
 
-func (r *UserRepo) Create(ctx context.Context, user *entity.User) error {
-
-	query := `INSERT INTO booking_service.users (phone,email,password_hash,first_name,last_name,created_at)
-						VALUES ($1,$2,$3,$4,$5,$6) RETURNING user_id,created_at,updated_at`
+func (r *UserRepo) Create(ctx context.Context, user *entity.User) (*entity.User, error) {
+	query := `INSERT INTO booking_service.users (phone, email, password_hash, first_name, last_name)
+              VALUES ($1, $2, $3, $4, $5)
+              RETURNING user_id, created_at, updated_at`
 
 	err := r.db.QueryRow(ctx, query,
 		user.Contact.Phone,
@@ -29,23 +32,28 @@ func (r *UserRepo) Create(ctx context.Context, user *entity.User) error {
 		user.PasswordHash,
 		user.Name,
 		user.Surname,
-		user.CreatedAt).Scan(&user.Id, &user.CreatedAt, &user.UpdatedAt)
+	).Scan(&user.Id, &user.CreatedAt, &user.UpdatedAt)
+
 	if err != nil {
 		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) {
-			if pgErr.Code == "23505" && (pgErr.ConstraintName == "users_email_key" || pgErr.ConstraintName == "users_phone_key") {
-				return fmt.Errorf("%w: %v", ErrUserExists, pgErr)
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			if pgErr.ConstraintName == "users_email_key" {
+				return nil, fmt.Errorf("%w: email already exists", ErrUserExists)
+			}
+			if pgErr.ConstraintName == "users_phone_key" {
+				return nil, fmt.Errorf("%w: phone already exists", ErrUserExists)
 			}
 		}
-		return fmt.Errorf("%w: %v", ErrUserCreate, err)
+		return nil, fmt.Errorf("%w: %v", ErrUserCreate, err)
 	}
 
-	return nil
+	return user, nil
 }
 
 func (r *UserRepo) FindByEmail(ctx context.Context, email string) (*entity.User, error) {
 	var user entity.User
-	query := `SELECT * FROM booking_service.users WHERE email = $1`
+	query := `SELECT user_id, email, password_hash, first_name, last_name, phone, created_at, updated_at
+              FROM booking_service.users WHERE email = $1`
 
 	err := r.db.QueryRow(ctx, query, email).Scan(
 		&user.Id,
@@ -55,12 +63,15 @@ func (r *UserRepo) FindByEmail(ctx context.Context, email string) (*entity.User,
 		&user.Surname,
 		&user.Contact.Phone,
 		&user.CreatedAt,
+		&user.UpdatedAt,
 	)
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to find user by email: %w", err)
+	}
 
-	return &user, err
-
+	return &user, nil
 }

@@ -32,6 +32,10 @@ func main() {
 	}
 	defer storage.Close()
 
+	//userRepo := pgx.NewUserRepo(storage.GetPool())
+	//
+	//authService := service.NewAuthService(userRepo)
+
 	e := echo.New()
 
 	e.POST("/users", controller.NewUser(logger))

@@ -3,7 +3,7 @@ package entity
 import "time"
 
 type User struct {
-	Id           int       `json:"id" db:"id"`
+	Id           int64     `json:"id" db:"id"`
 	Name         string    `json:"name" validate:"required,max=50" db:"first_name"`
 	Surname      string    `json:"surname" validate:"required,max=50" db:"last_name"`
 	Contact      Contact   `json:"contact" validate:"required,dive,required"`
