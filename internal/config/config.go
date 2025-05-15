@@ -11,11 +11,9 @@ import (
 )
 
 type Config struct {
-	Env        string        `yaml:"env" env-default:"local"`
-	HTTPServer HTTPServer    `yaml:"http_server" env-required:"true"`
-	DBConfig   DBConfig      `yaml:"db_config" env-required:"true"`
-	JwtSecret  []byte        `env-required:"true"`
-	JwtExpire  time.Duration `yaml:"jwt_expire" env-default:"1h"`
+	Env        string     `yaml:"env" env-default:"local"`
+	HTTPServer HTTPServer `yaml:"http_server" env-required:"true"`
+	DBConfig   DBConfig   `yaml:"db_config" env-required:"true"`
 }
 
 type DBConfig struct {
@@ -36,6 +34,8 @@ type HTTPServer struct {
 	WriteTimeout      time.Duration `yaml:"write_timeout" env-default:"8s"`
 	ReadHeaderTimeout time.Duration `yaml:"read_header_timeout" env-default:"2s"`
 	IdleTimeout       time.Duration `yaml:"idle_timeout" env-default:"60s"`
+	JwtSecret         string        `yaml:"jwt_secret" env-required:"true"`
+	JwtExpire         time.Duration `yaml:"jwt_expire" env-default:"1h"`
 }
 
 func MustLoadConfig() *Config {
@@ -58,7 +58,7 @@ func MustLoadConfig() *Config {
 		log.Fatalf("Failed to read config file: %v", err)
 	}
 
-	config.JwtSecret = []byte(os.Getenv("JWT_SECRET"))
+	config.HTTPServer.JwtSecret = os.Getenv("JWT_SECRET")
 
 	return &config
 }

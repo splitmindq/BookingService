@@ -6,6 +6,7 @@ http_server:
   read_header_timeout: 1s
   idle_timeout: 60s
   jwt_expire: 1h
+  jwt_secret: ${JWT_SECRET}
 db_config:
   host: ${DB_HOST}
   port: 5432

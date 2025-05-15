@@ -2,15 +2,44 @@ CREATE SCHEMA IF NOT EXISTS booking_service;
 
 SET search_path TO booking_service;
 
-CREATE TYPE role_type AS ENUM ('admin');
-CREATE TYPE booking_status AS ENUM ('pending', 'confirmed', 'canceled');
-CREATE TYPE payment_method AS ENUM ('card', 'bank');
-CREATE TYPE payment_status AS ENUM ('pending', 'success', 'failed');
-CREATE TYPE blocked_reason AS ENUM ('booking', 'maintenance', 'personal', 'other');
+DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'role_type') THEN
+            CREATE TYPE role_type AS ENUM ('admin');
+        END IF;
+    END $$;
+
+DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'booking_status') THEN
+            CREATE TYPE booking_status AS ENUM ('pending', 'confirmed', 'canceled');
+        END IF;
+    END $$;
+
+DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'booking_status') THEN
+            CREATE TYPE payment_method AS ENUM ('card', 'bank');
+        END IF;
+    END $$;
+
+DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'booking_status') THEN
+            CREATE TYPE payment_status AS ENUM ('pending', 'success', 'failed');
+        END IF;
+    END $$;
+
+DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'booking_status') THEN
+            CREATE TYPE blocked_reason AS ENUM ('booking', 'maintenance', 'personal', 'other');
+        END IF;
+    END $$;
 
 -- Users Table
 CREATE TABLE IF NOT EXISTS booking_service.users (
-    user_id SERIAL PRIMARY KEY,
+    user_id SERIAL PRIMARY KEY ,
     phone VARCHAR(20) NOT NULL UNIQUE,
     email VARCHAR(100) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
@@ -58,7 +87,25 @@ CREATE TABLE IF NOT EXISTS booking_service.bookings (
     FOREIGN KEY (guest_id) REFERENCES booking_service.users (user_id)
     );
 
-CREATE INDEX idx_bookings_dates ON booking_service.bookings (property_id, check_in_date, check_out_date);
+
+DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'booking_status') THEN
+            CREATE TYPE blocked_reason AS ENUM ('booking', 'maintenance', 'personal', 'other');
+        END IF;
+    END $$;
+
+DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM pg_indexes
+            WHERE schemaname = 'booking_service'
+              AND indexname = 'idx_bookings_dates'
+        ) THEN
+            CREATE INDEX idx_bookings_dates ON booking_service.bookings (property_id, check_in_date, check_out_date);
+        END IF;
+    END $$;
 
 -- Payments Table
 CREATE TABLE IF NOT EXISTS booking_service.payments (
@@ -96,4 +143,14 @@ CREATE TABLE IF NOT EXISTS booking_service.blocked_dates (
     FOREIGN KEY (property_id) REFERENCES booking_service.properties (property_id)
     );
 
-CREATE INDEX idx_blocked_dates ON booking_service.blocked_dates (property_id, start_date, end_date);
+DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM pg_indexes
+            WHERE schemaname = 'booking_service'
+              AND indexname = 'idx_blocked_dates'
+        ) THEN
+            CREATE INDEX idx_blocked_dates ON booking_service.blocked_dates (property_id, start_date, end_date);        END IF;
+    END $$;
+

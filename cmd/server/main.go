@@ -3,6 +3,7 @@ package main
 import (
 	"BookingService/internal/config"
 	"BookingService/internal/controller"
+	"BookingService/internal/service"
 	"BookingService/internal/storage/pgx"
 	"fmt"
 	"github.com/labstack/echo/v4"
@@ -32,13 +33,19 @@ func main() {
 	}
 	defer storage.Close()
 
-	//userRepo := pgx.NewUserRepo(storage.GetPool())
-	//
-	//authService := service.NewAuthService(userRepo)
+	userRepo := pgx.NewUserRepo(storage.GetPool(), logger)
+
+	authService := service.NewAuthService(userRepo, cfg, logger)
+
+	authController := controller.NewAuthController(authService)
 
 	e := echo.New()
 
+	//тестовая ручка
 	e.POST("/users", controller.NewUser(logger))
+
+	//тест ручка без middleware
+	e.POST("/signup", authController.SignUp())
 
 	err = cfg.HTTPListen(e)
 	if err != nil {

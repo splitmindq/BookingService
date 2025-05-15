@@ -10,19 +10,20 @@ import (
 	"errors"
 	"fmt"
 	"golang.org/x/crypto/bcrypt"
+	"log"
+	"log/slog"
 )
 
 type AuthService struct {
 	userRepo repository.UserRepository
 	cfg      *config.Config
+	log      *slog.Logger
 }
 
-func NewAuthService(userRepo *pgx.UserRepo, cfg *config.Config) *AuthService {
-	return &AuthService{userRepo, cfg}
+func NewAuthService(userRepo *pgx.UserRepo, cfg *config.Config, log *slog.Logger) *AuthService {
+	return &AuthService{userRepo, cfg, log}
 }
-
 func (s *AuthService) SignUp(ctx context.Context, input entity.SignUpInput) (int64, error) {
-
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return 0, err
@@ -38,14 +39,19 @@ func (s *AuthService) SignUp(ctx context.Context, input entity.SignUpInput) (int
 		Surname:      input.LastName,
 	}
 
+	s.log.Info("SignUp user ", user)
+
 	user, err = s.userRepo.Create(ctx, user)
+
+	s.log.Info("CREATED user ", user)
+
 	if err != nil {
+		log.Printf("Error creating user: %v", err)
 		return 0, fmt.Errorf("failed to create user: %w", err)
 	}
 
 	return user.Id, nil
 }
-
 func (s *AuthService) SignIn(ctx context.Context, input entity.SignInInput) (string, error) {
 	user, err := s.userRepo.FindByEmail(ctx, input.Email)
 	if err != nil {
@@ -55,15 +61,25 @@ func (s *AuthService) SignIn(ctx context.Context, input entity.SignInInput) (str
 		return "", errors.New("invalid credentials")
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(input.Password)); err != nil {
+	if err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(input.Password)); err != nil {
 		return "", errors.New("invalid credentials")
 	}
 
-	token, err := jwt.NewToken(user, s.cfg.JwtSecret, s.cfg.JwtExpire)
+	token, err := jwt.NewToken(user, s.cfg.HTTPServer.JwtSecret, s.cfg.HTTPServer.JwtExpire)
+
+	if err != nil {
+		return "", fmt.Errorf("failed to create token: %w", err)
+	}
 
 	return token, nil
 }
 
-//func (s *AuthService) IsAdmin(ctx context.Context, userId int64) error {
-//
-//}
+func (s *AuthService) IsAdmin(ctx context.Context, userId int64) (bool, error) {
+
+	isAdmin, err := s.userRepo.IsAdmin(ctx, userId)
+	if err != nil {
+		return false, err
+	}
+
+	return isAdmin, nil
+}

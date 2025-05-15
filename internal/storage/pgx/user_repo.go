@@ -9,22 +9,28 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/labstack/gommon/log"
+	"log/slog"
 )
 
 var _ repository.UserRepository = (*UserRepo)(nil)
 
 type UserRepo struct {
-	db *pgxpool.Pool
+	db  *pgxpool.Pool
+	log *slog.Logger
 }
 
-func NewUserRepo(db *pgxpool.Pool) *UserRepo {
-	return &UserRepo{db: db}
+func NewUserRepo(db *pgxpool.Pool, log *slog.Logger) *UserRepo {
+	return &UserRepo{db: db, log: log}
 }
 
+// defer transaction roolback users_user_id_seq
 func (r *UserRepo) Create(ctx context.Context, user *entity.User) (*entity.User, error) {
 	query := `INSERT INTO booking_service.users (phone, email, password_hash, first_name, last_name)
               VALUES ($1, $2, $3, $4, $5)
               RETURNING user_id, created_at, updated_at`
+
+	log.Info("INFO OF USER BEFORE EXECUTING QUERY", user)
 
 	err := r.db.QueryRow(ctx, query,
 		user.Contact.Phone,
@@ -46,6 +52,8 @@ func (r *UserRepo) Create(ctx context.Context, user *entity.User) (*entity.User,
 		}
 		return nil, fmt.Errorf("%w: %v", ErrUserCreate, err)
 	}
+
+	log.Info("INFO OF USER AFTER EXECUTING QUERY", user)
 
 	return user, nil
 }
@@ -74,4 +82,23 @@ func (r *UserRepo) FindByEmail(ctx context.Context, email string) (*entity.User,
 	}
 
 	return &user, nil
+}
+
+func (r *UserRepo) IsAdmin(ctx context.Context, userId int64) (bool, error) {
+
+	query := `SELECT EXISTS (	
+					    SELECT 1
+						from booking_service.user_roles
+						WHERE user_id = $1 AND role = 'admin')`
+
+	err := r.db.QueryRow(ctx, query, userId).Scan(userId)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, errors.New("user is not an admin")
+	}
+	if err != nil {
+		return false, fmt.Errorf("failed to check if user is an admin: %w", err)
+	}
+
+	return userId > 0, nil
+
 }
