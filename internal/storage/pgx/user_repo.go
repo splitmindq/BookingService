@@ -4,6 +4,7 @@ import (
 	"BookingService/internal/entity"
 	"BookingService/internal/repository"
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5"
@@ -24,7 +25,6 @@ func NewUserRepo(db *pgxpool.Pool, log *slog.Logger) *UserRepo {
 	return &UserRepo{db: db, log: log}
 }
 
-// defer transaction roolback users_user_id_seq
 func (r *UserRepo) Create(ctx context.Context, user *entity.User) (*entity.User, error) {
 	query := `INSERT INTO booking_service.users (phone, email, password_hash, first_name, last_name)
               VALUES ($1, $2, $3, $4, $5)
@@ -53,16 +53,21 @@ func (r *UserRepo) Create(ctx context.Context, user *entity.User) (*entity.User,
 		return nil, fmt.Errorf("%w: %v", ErrUserCreate, err)
 	}
 
+	user.Role = "user"
+
 	log.Info("INFO OF USER AFTER EXECUTING QUERY", user)
 
 	return user, nil
 }
-
 func (r *UserRepo) FindByEmail(ctx context.Context, email string) (*entity.User, error) {
 	var user entity.User
-	query := `SELECT user_id, email, password_hash, first_name, last_name, phone, created_at, updated_at
-              FROM booking_service.users WHERE email = $1`
 
+	query := `SELECT u.user_id, u.email, u.password_hash, u.first_name, u.last_name, u.phone, u.created_at, u.updated_at, ur.role
+              FROM booking_service.users u
+              LEFT JOIN booking_service.user_roles ur ON u.user_id = ur.user_id
+              WHERE u.email = $1`
+
+	var role sql.NullString
 	err := r.db.QueryRow(ctx, query, email).Scan(
 		&user.Id,
 		&user.Contact.Email,
@@ -72,21 +77,33 @@ func (r *UserRepo) FindByEmail(ctx context.Context, email string) (*entity.User,
 		&user.Contact.Phone,
 		&user.CreatedAt,
 		&user.UpdatedAt,
+		&role,
 	)
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
+		r.log.Error("failed to find user by email", "error", err)
 		return nil, fmt.Errorf("failed to find user by email: %w", err)
 	}
 
+	// Устанавливаем роль "user" по умолчанию, если role NULL
+	user.Role = role.String
+	if !role.Valid {
+		user.Role = "user"
+	}
+
+	r.log.Info("Found user",
+		slog.Int64("user_id", user.Id),
+		slog.String("email", user.Contact.Email),
+		slog.String("role", user.Role))
+
 	return &user, nil
 }
-
 func (r *UserRepo) IsAdmin(ctx context.Context, userId int64) (bool, error) {
 
-	query := `SELECT EXISTS (	
+	query := `SELECT EXISTS (
 					    SELECT 1
 						from booking_service.user_roles
 						WHERE user_id = $1 AND role = 'admin')`
@@ -102,3 +119,18 @@ func (r *UserRepo) IsAdmin(ctx context.Context, userId int64) (bool, error) {
 	return userId > 0, nil
 
 }
+
+//
+//func (r *UserRepo) GetRole(ctx context.Context, userId int64) (string, error) {
+//	query := `SELECT role FROM booking_service.user_roles WHERE user_id = $1`
+//
+//	var role string
+//
+//	err := r.db.QueryRow(ctx, query, userId).Scan(&role)
+//	if err != nil {
+//		return "", fmt.Errorf("failed to find user by id: %w", err)
+//	}
+//
+//	return role, nil
+//
+//}

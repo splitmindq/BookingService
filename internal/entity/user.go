@@ -10,6 +10,7 @@ type User struct {
 	PasswordHash string    `json:"-" validate:"required,max=255" db:"password_hash"`
 	CreatedAt    time.Time `json:"createdAt" validate:"required" db:"created_at"`
 	UpdatedAt    time.Time `json:"updatedAt" validate:"required" db:"updated_at"`
+	Role         string    `json:"role" db:"-"`
 }
 
 type Contact struct {

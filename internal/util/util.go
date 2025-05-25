@@ -22,7 +22,3 @@ func DecodeAndValidate(c echo.Context, v interface{}) error {
 
 	return nil
 }
-
-func RespondError(code int, err error) error {
-	return echo.NewHTTPError(code, err.Error())
-}

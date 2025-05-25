@@ -2,69 +2,79 @@ package middleware
 
 import (
 	"BookingService/internal/lib/jwt"
-	"context"
+	"BookingService/internal/repository"
 	"github.com/labstack/echo/v4"
 	"log/slog"
 	"net/http"
 	"strings"
 )
 
-type UserRepository interface {
-	IsAdmin(ctx context.Context, userId int64) (bool, error)
-}
-
 type JwtAuthMiddleware struct {
-	userRepo  UserRepository
-	jwtSecret string
-	log       *slog.Logger
+	userRepo repository.UserRepository
+	secret   string
+	logger   *slog.Logger
 }
 
-func NewJwtAuthMiddleware(userRepo UserRepository, jwtSecret string, log *slog.Logger) *JwtAuthMiddleware {
-	return &JwtAuthMiddleware{
-		userRepo:  userRepo,
-		jwtSecret: jwtSecret,
-		log:       log,
-	}
+func NewJwtAuthMiddleware(userRepo repository.UserRepository, secret string, logger *slog.Logger) *JwtAuthMiddleware {
+	return &JwtAuthMiddleware{userRepo, secret, logger}
 }
 
-func (jm *JwtAuthMiddleware) JwtAuth() echo.MiddlewareFunc {
+func (m *JwtAuthMiddleware) JwtAuth() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			authHeader := c.Request().Header.Get("Authorization")
-			if authHeader == "" {
-				return echo.NewHTTPError(http.StatusUnauthorized, "Missing Authorization header")
+		return func(ctx echo.Context) error {
+			// Проверяем заголовок Authorization
+			authHeader := ctx.Request().Header.Get("Authorization")
+			tokenString := ""
+			if authHeader != "" {
+				parts := strings.Split(authHeader, " ")
+				if len(parts) == 2 && parts[0] == "Bearer" {
+					tokenString = parts[1]
+				}
 			}
-			tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+
+			// Если заголовок пустой, проверяем куки
 			if tokenString == "" {
-				return echo.NewHTTPError(http.StatusUnauthorized, "Missing Authorization header")
+				cookie, err := ctx.Cookie("token")
+				if err != nil {
+					m.logger.Warn("missing token")
+					return echo.NewHTTPError(http.StatusUnauthorized, "missing token")
+				}
+				tokenString = cookie.Value
 			}
-			uid, err := jwt.ParseTokenAndGetUID(tokenString, jm.jwtSecret)
+
+			if tokenString == "" {
+				m.logger.Warn("missing token")
+				return echo.NewHTTPError(http.StatusUnauthorized, "missing token")
+			}
+
+			userID, role, err := jwt.ParseTokenAndGetUID(tokenString, m.secret)
 			if err != nil {
-				return echo.NewHTTPError(http.StatusUnauthorized, "Invalid token")
+				m.logger.Warn("invalid token", "error", err)
+				return echo.NewHTTPError(http.StatusUnauthorized, "invalid or expired token")
 			}
-			c.Set("uid", uid)
-			return next(c)
+
+			// Сохраняем user_id и role в контексте
+			ctx.Set("user_id", userID)
+			ctx.Set("role", role)
+
+			m.logger.Debug("Token validated",
+				slog.Int64("user_id", userID),
+				slog.String("role", role))
+
+			return next(ctx)
 		}
 	}
 }
 
-func (jm *JwtAuthMiddleware) AdminOnly() echo.MiddlewareFunc {
+func (m *JwtAuthMiddleware) AdminOnly() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			uid, ok := c.Get("uid").(int64)
-			if !ok {
-				return echo.NewHTTPError(http.StatusUnauthorized, "Not authorized")
+		return func(ctx echo.Context) error {
+			role, ok := ctx.Get("role").(string)
+			if !ok || role != "admin" {
+				m.logger.Warn("admin access required", "role", role)
+				return echo.NewHTTPError(http.StatusForbidden, "admin access required")
 			}
-			IsAdmin, err := jm.userRepo.IsAdmin(context.Background(), uid)
-			if err != nil {
-				jm.log.Error("failed to check admin status", slog.Int64("uid", uid),
-					slog.String("error", err.Error()))
-				return echo.NewHTTPError(http.StatusInternalServerError, "Internal server error")
-			}
-			if !IsAdmin {
-				return echo.NewHTTPError(http.StatusUnauthorized, "Forbidden")
-			}
-			return next(c)
+			return next(ctx)
 		}
 	}
 }

@@ -16,7 +16,7 @@ import (
 
 type AuthService struct {
 	userRepo repository.UserRepository
-	cfg      *config.Config
+	Cfg      *config.Config
 	log      *slog.Logger
 }
 
@@ -65,21 +65,11 @@ func (s *AuthService) SignIn(ctx context.Context, input entity.SignInInput) (str
 		return "", errors.New("invalid credentials")
 	}
 
-	token, err := jwt.NewToken(user, s.cfg.HTTPServer.JwtSecret, s.cfg.HTTPServer.JwtExpire)
+	token, err := jwt.NewToken(user, s.Cfg.HTTPServer.JwtSecret, s.Cfg.HTTPServer.JwtExpire)
 
 	if err != nil {
 		return "", fmt.Errorf("failed to create token: %w", err)
 	}
 
 	return token, nil
-}
-
-func (s *AuthService) IsAdmin(ctx context.Context, userId int64) (bool, error) {
-
-	isAdmin, err := s.userRepo.IsAdmin(ctx, userId)
-	if err != nil {
-		return false, err
-	}
-
-	return isAdmin, nil
 }
